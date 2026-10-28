@@ -2,6 +2,15 @@
 
 A Discord bot that plays music from a Plex library in a voice channel. It is meant for one friends' server.
 
+## Status
+
+MVP. The code builds and imports, but it has not played a track in a live voice channel yet.
+
+Planned:
+
+- A search index that finds English, Japanese, and Chinese titles from their Korean readings
+- Plex search for movies and shows. It only looks them up; playback stays music only
+
 ## Commands
 
 | Command | What it does |
@@ -39,6 +48,14 @@ Every key the bot reads is in `.env.example`.
 3. No privileged intents are needed.
 
 ## Run
+
+Version tags publish images for `linux/amd64` and `linux/arm64` to GitHub Container Registry. `v0.1.0` gets `0.1.0`, `0.1`, and `latest`. A release candidate such as `v0.1.0-rc.1` gets only its own tag.
+
+```sh
+docker run --rm --env-file .env ghcr.io/dor1a/kanade:0.1
+```
+
+To build it yourself:
 
 ```sh
 docker build -t kanade .
