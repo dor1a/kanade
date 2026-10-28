@@ -1,6 +1,19 @@
+<div align="center">
+
+<img src="assets/kanade.svg" alt="" width="96">
+
 # kanade
 
-A Discord bot that plays music from a Plex library in a voice channel. It is meant for one friends' server.
+**A Discord bot that plays music from a Plex library in a voice channel**
+
+Made for one friends' server.
+
+[![build](https://github.com/dor1a/kanade/actions/workflows/build.yml/badge.svg)](https://github.com/dor1a/kanade/actions/workflows/build.yml)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](Dockerfile)
+[![image](https://img.shields.io/badge/image-ghcr.io%2Fdor1a%2Fkanade-2496ED?logo=docker&logoColor=white)](https://github.com/dor1a/kanade/pkgs/container/kanade)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+</div>
 
 ## Status
 
