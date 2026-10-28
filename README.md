@@ -16,7 +16,7 @@ Made for one friends' server.
 </div>
 
 > [!NOTE]
-> This is an MVP. The code builds and imports, but it has not played a track in a live voice channel yet. Planned next: a search index that finds English, Japanese, and Chinese titles from their Korean readings, and Plex search for movies and shows. That search only looks them up; playback stays music only.
+> Phase 1 of [the plan](docs/PLAN.md), playback, is written but has not played a track in a live voice channel yet. Korean search and Plex media search come after it.
 
 ## Commands
 
