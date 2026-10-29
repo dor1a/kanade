@@ -18,7 +18,7 @@ kanade plays music from a Plex library in a Discord voice channel, for one frien
 
 | Phase | Scope | Done when |
 | -- | -- | -- |
-| 1. Playback | `/play` with Plex search as autocomplete, `/skip`, `/queue`, `/stop` | A track plays on the friends' server from a published image |
+| 1. Playback | `/play` with autocomplete, `/random`, `/browse`, `/skip`, `/queue`, `/stop`, continuous play, now-playing cards, one command channel | A track plays on the friends' server from a published image |
 | 2. Korean search | A local index of the music library, matched while the user types | A Korean query finds an English, Japanese, or Chinese title within Discord's three-second autocomplete limit |
 | 3. Media search | Search Plex movies and shows and list what is there. Lookup only | Decided later |
 

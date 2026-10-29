@@ -23,15 +23,19 @@ Made for one friends' server.
 | Command | What it does |
 | -- | -- |
 | `/play <query>` | Searches the music library as you type and plays the chosen track, or queues it if something is playing |
+| `/random [count] [artist]` | Queues random tracks (five by default), from one artist if given, and keeps drawing from the same pool after the queue |
+| `/browse <artist>` | Opens menus, visible only to you, to pick one of the artist's albums and then a track or the whole album |
 | `/skip` | Skips the current track |
-| `/queue` | Shows the current track and up to ten queued ones |
+| `/queue` | Shows the current track, up to ten queued ones, and what plays after them |
 | `/stop` | Clears the queue and leaves the voice channel |
 
-Commands are registered to one guild (`DISCORD_GUILD_ID`), so they appear right after the bot starts.
+Commands are registered to one guild (`DISCORD_GUILD_ID`), so they appear right after the bot starts. With `DISCORD_CHANNEL_ID` set, they work only in that channel.
 
 ## How playback works
 
 - At startup the bot loads every track in the music library from Plex into memory, and it reloads the list every 30 minutes. Autocomplete keeps the tracks whose title, track artist, album artist, and album together contain every word typed, title matches first.
+- When the queue runs out, playback continues with a random track that has not played since the bot joined the voice channel. After `/play` or `/browse` it comes from the last track's artist, after `/random` from the same pool `/random` used, and it moves to the whole library when that pool runs out. `/stop` ends it, and the bot also leaves when a track ends and no one but bots is left in the voice channel.
+- The reply to a command that starts playback is a now-playing card with the album art. Later tracks post the same card to `DISCORD_CHANNEL_ID`, or to the channel of the last command when it is empty. Plex is not reachable from Discord, so the bot fetches the art from Plex at 300 px and uploads it with the card.
 - Plex `/hubs/search` is not used for this because a query for an artist name lands in its artist hub, and its track hub returns only a few of that artist's tracks. It is the fallback when the track list could not be loaded. Discord drops autocomplete answers after three seconds, so the bot waits 2.5 seconds at most for it.
 - The bot opens the track's original file on Plex and hands the stream to `discord.FFmpegOpusAudio(pipe=True)`. discord.py feeds it to ffmpeg's stdin from a thread. The Plex token stays in an HTTP header and never appears in the ffmpeg command line.
 - Voice uses `discord.py[voice]` 2.7.1, which pulls in `davey` for Discord's end-to-end encrypted voice (DAVE). Discord requires it for voice since 2026-03-01.
@@ -44,6 +48,7 @@ Every key the bot reads is in `.env.example`.
 | -- | -- |
 | `DISCORD_TOKEN` | Bot token from the Discord developer portal |
 | `DISCORD_GUILD_ID` | The server the commands are registered to |
+| `DISCORD_CHANNEL_ID` | The only channel that takes commands and gets now-playing cards. Empty allows every channel |
 | `PLEX_URL` | Plex base URL, for example `http://plex.example:32400` |
 | `PLEX_TOKEN` | Plex token. Sent only as the `X-Plex-Token` header |
 | `PLEX_MUSIC_SECTION_ID` | Music library section. Empty loads every music section |
@@ -52,7 +57,7 @@ Every key the bot reads is in `.env.example`.
 ## Discord application
 
 1. Create an application in the Discord developer portal and add a bot. Copy its token.
-2. Invite it with the `bot` and `applications.commands` scopes and the Connect and Speak permissions.
+2. Invite it with the `bot` and `applications.commands` scopes and the View Channels, Send Messages, Embed Links, Attach Files, Connect, and Speak permissions. The message permissions are for the now-playing cards the bot posts on its own.
 3. No privileged intents are needed.
 
 ## Run

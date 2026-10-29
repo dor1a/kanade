@@ -11,6 +11,8 @@ TRACK_TYPE = "track"
 TRACK_TYPE_ID = 10  # Plex metadata type number for tracks, used to filter library listings.
 MUSIC_SECTION_TYPE = "artist"
 LIBRARY_TIMEOUT = 60  # A full track listing is one large response.
+COVER_SIZE = 300
+COVER_TIMEOUT = 5
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,7 @@ class Track:
     number: int
     duration_ms: int
     part_key: str
+    thumb: str
 
     @property
     def label(self) -> str:
@@ -46,6 +49,8 @@ def _track_from_metadata(item: dict) -> Track | None:
         number=int(item.get("index") or 0),
         duration_ms=int(item.get("duration") or 0),
         part_key=parts[0]["key"],
+        # Album art first; a track rarely has its own.
+        thumb=item.get("parentThumb") or item.get("thumb") or item.get("grandparentThumb") or "",
     )
 
 
@@ -123,6 +128,25 @@ class PlexClient:
             if item.get("type") == TRACK_TYPE:
                 return _track_from_metadata(item)
         return None
+
+    async def cover(self, track: Track) -> bytes | None:
+        """Album art scaled down by Plex, or None. Plex is not public, so the bot uploads it."""
+        if not track.thumb:
+            return None
+        assert self._session is not None, "PlexClient.start() was not called"
+        params = {
+            "url": track.thumb,
+            "width": str(COVER_SIZE),
+            "height": str(COVER_SIZE),
+            "minSize": "1",
+            "upscale": "1",
+        }
+        async with self._session.get(
+            f"{self._base_url}/photo/:/transcode", params=params, timeout=aiohttp.ClientTimeout(total=COVER_TIMEOUT)
+        ) as resp:
+            if resp.status != 200:
+                return None
+            return await resp.read()
 
     async def open_stream(self, track: Track) -> BinaryIO:
         """Open the original file as a blocking stream for discord.py's pipe writer thread.
