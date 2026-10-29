@@ -8,6 +8,9 @@ from typing import BinaryIO
 import aiohttp
 
 TRACK_TYPE = "track"
+TRACK_TYPE_ID = 10  # Plex metadata type number for tracks, used to filter library listings.
+MUSIC_SECTION_TYPE = "artist"
+LIBRARY_TIMEOUT = 60  # A full track listing is one large response.
 
 
 @dataclass(frozen=True)
@@ -15,7 +18,10 @@ class Track:
     rating_key: str
     title: str
     artist: str
+    album_artist: str
     album: str
+    disc: int
+    number: int
     duration_ms: int
     part_key: str
 
@@ -34,7 +40,10 @@ def _track_from_metadata(item: dict) -> Track | None:
         title=item.get("title", ""),
         # Track artist when set, otherwise the album artist.
         artist=item.get("originalTitle") or item.get("grandparentTitle", ""),
+        album_artist=item.get("grandparentTitle", ""),
         album=item.get("parentTitle", ""),
+        disc=int(item.get("parentIndex") or 0),
+        number=int(item.get("index") or 0),
         duration_ms=int(item.get("duration") or 0),
         part_key=parts[0]["key"],
     )
@@ -85,6 +94,28 @@ class PlexClient:
                 if track:
                     tracks.append(track)
         return tracks[:limit]
+
+    async def all_tracks(self) -> list[Track]:
+        """Every track in the music section, or in every music section when none is set."""
+        if self._section_id:
+            section_ids = [self._section_id]
+        else:
+            data = await self._get("/library/sections")
+            section_ids = [
+                str(d["key"])
+                for d in data.get("MediaContainer", {}).get("Directory", [])
+                if d.get("type") == MUSIC_SECTION_TYPE
+            ]
+        tracks: list[Track] = []
+        for section_id in section_ids:
+            data = await self._get(
+                f"/library/sections/{section_id}/all", {"type": str(TRACK_TYPE_ID)}, LIBRARY_TIMEOUT
+            )
+            for item in data.get("MediaContainer", {}).get("Metadata", []):
+                track = _track_from_metadata(item)
+                if track:
+                    tracks.append(track)
+        return tracks
 
     async def track(self, rating_key: str) -> Track | None:
         data = await self._get(f"/library/metadata/{rating_key}")

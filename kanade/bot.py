@@ -7,14 +7,16 @@ import discord
 from discord import app_commands
 
 from .config import Config
+from .index import TrackIndex
 from .player import GuildPlayer
-from .plex import PlexClient
+from .plex import PlexClient, Track
 
 log = logging.getLogger(__name__)
 
 AUTOCOMPLETE_TIMEOUT = 2.5  # Discord drops autocomplete answers after 3 seconds.
 CHOICE_LIMIT = 25
 NAME_LIMIT = 100
+INDEX_REFRESH_SECONDS = 30 * 60  # New tracks in Plex show up in search after at most this long.
 
 
 class Kanade(discord.Client):
@@ -22,22 +24,48 @@ class Kanade(discord.Client):
         super().__init__(intents=discord.Intents.default())
         self.config = config
         self.plex = PlexClient(config.plex_url, config.plex_token, config.plex_section_id)
+        self.index = TrackIndex()
         self.tree = app_commands.CommandTree(self)
         self.players: dict[int, GuildPlayer] = {}
+        self._refresh_task: asyncio.Task | None = None
         self._register_commands()
 
     async def setup_hook(self) -> None:
         await self.plex.start()
+        await self.refresh_index()
+        self._refresh_task = asyncio.create_task(self._refresh_loop())
         guild = discord.Object(id=self.config.guild_id)
         # Guild commands show up at once; global ones can take a while.
         self.tree.copy_global_to(guild=guild)
         await self.tree.sync(guild=guild)
 
     async def close(self) -> None:
+        if self._refresh_task:
+            self._refresh_task.cancel()
         for player in self.players.values():
             await player.stop()
         await self.plex.close()
         await super().close()
+
+    async def refresh_index(self) -> None:
+        # A failed refresh keeps the previous index; an empty one falls back to Plex search.
+        try:
+            tracks = await self.plex.all_tracks()
+        except Exception:
+            log.exception("could not load the track list from Plex")
+            return
+        self.index.replace(tracks)
+        log.info("indexed %d tracks", len(self.index))
+
+    async def _refresh_loop(self) -> None:
+        while True:
+            await asyncio.sleep(INDEX_REFRESH_SECONDS)
+            await self.refresh_index()
+
+    async def find_tracks(self, query: str, limit: int, timeout: float = 10) -> list[Track]:
+        if self.index:
+            return self.index.search(query, limit)
+        return await self.plex.search_tracks(query, limit=limit, timeout=timeout)
 
     def player_for(self, guild_id: int) -> GuildPlayer:
         if guild_id not in self.players:
@@ -56,14 +84,14 @@ class Kanade(discord.Client):
                 return
             await interaction.response.defer()
             # Autocomplete sends the rating key; typed text falls back to the first search hit.
-            track = None
-            if query.isdigit():
+            track = self.index.get(query)
+            if track is None and query.isdigit() and not self.index:
                 try:
                     track = await self.plex.track(query)
                 except Exception:
                     log.debug("rating key lookup failed for %s", query, exc_info=True)
             if track is None:
-                hits = await self.plex.search_tracks(query, limit=1)
+                hits = await self.find_tracks(query, 1)
                 track = hits[0] if hits else None
             if track is None:
                 await interaction.followup.send(f"찾지 못했어요: {query}")
@@ -78,7 +106,7 @@ class Kanade(discord.Client):
             if not current.strip():
                 return []
             try:
-                tracks = await self.plex.search_tracks(current, limit=CHOICE_LIMIT, timeout=AUTOCOMPLETE_TIMEOUT)
+                tracks = await self.find_tracks(current, CHOICE_LIMIT, timeout=AUTOCOMPLETE_TIMEOUT)
             except Exception:
                 log.debug("autocomplete search failed", exc_info=True)
                 return []

@@ -22,7 +22,7 @@ Made for one friends' server.
 
 | Command | What it does |
 | -- | -- |
-| `/play <query>` | Searches Plex as you type and plays the chosen track, or queues it if something is playing |
+| `/play <query>` | Searches the music library as you type and plays the chosen track, or queues it if something is playing |
 | `/skip` | Skips the current track |
 | `/queue` | Shows the current track and up to ten queued ones |
 | `/stop` | Clears the queue and leaves the voice channel |
@@ -31,7 +31,8 @@ Commands are registered to one guild (`DISCORD_GUILD_ID`), so they appear right 
 
 ## How playback works
 
-- Search uses Plex `/hubs/search`, which Plex intends to be called while the user types. Discord drops autocomplete answers after three seconds, so the bot waits 2.5 seconds at most.
+- At startup the bot loads every track in the music library from Plex into memory, and it reloads the list every 30 minutes. Autocomplete keeps the tracks whose title, track artist, album artist, and album together contain every word typed, title matches first.
+- Plex `/hubs/search` is not used for this because a query for an artist name lands in its artist hub, and its track hub returns only a few of that artist's tracks. It is the fallback when the track list could not be loaded. Discord drops autocomplete answers after three seconds, so the bot waits 2.5 seconds at most for it.
 - The bot opens the track's original file on Plex and hands the stream to `discord.FFmpegOpusAudio(pipe=True)`. discord.py feeds it to ffmpeg's stdin from a thread. The Plex token stays in an HTTP header and never appears in the ffmpeg command line.
 - Voice uses `discord.py[voice]` 2.7.1, which pulls in `davey` for Discord's end-to-end encrypted voice (DAVE). Discord requires it for voice since 2026-03-01.
 
@@ -45,7 +46,7 @@ Every key the bot reads is in `.env.example`.
 | `DISCORD_GUILD_ID` | The server the commands are registered to |
 | `PLEX_URL` | Plex base URL, for example `http://plex.example:32400` |
 | `PLEX_TOKEN` | Plex token. Sent only as the `X-Plex-Token` header |
-| `PLEX_MUSIC_SECTION_ID` | Music library section. Empty searches every section |
+| `PLEX_MUSIC_SECTION_ID` | Music library section. Empty loads every music section |
 | `KANADE_BITRATE_KBPS` | Opus bitrate sent to Discord. Default 128 |
 
 ## Discord application

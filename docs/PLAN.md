@@ -26,6 +26,8 @@ kanade plays music from a Plex library in a Discord voice channel, for one frien
 
 Plex search matches the stored text, so a Korean query cannot find a title written in another script. The index keeps several readings for each title and artist.
 
+The plain-text part is in place. At startup and every 30 minutes the bot loads each track's title, track artist, album artist, and album from Plex into memory, and autocomplete keeps the tracks that contain every typed word. Plex search fell short here as well: a query for an artist name lands in the artist hub, and the track hub returned 3 of that artist's 347 tracks in one test. The readings below go into the same in-memory entries.
+
 | Source | Readings stored | Example |
 | -- | -- | -- |
 | Japanese | The kana reading (`pykakasi`) written in Hangul, not the Korean reading of the kanji | 米津玄師 → 요네즈 켄시 |
@@ -56,7 +58,7 @@ Plex search matches the stored text, so a Korean query cannot find a title writt
 
 | Item | Where the draft is |
 | -- | -- |
-| Where the index lives (memory, SQLite, or Postgres) | Korean search |
+| Where the alias table lives (SQLite or Postgres). The track list itself is rebuilt from Plex in memory | Korean search |
 | Contents of the alias table | Korean search |
 | Meaning-based aliases from a local model (optional) | Korean search |
 | Media search commands and output | Phases |
