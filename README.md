@@ -53,6 +53,7 @@ Every key the bot reads is in `.env.example`.
 | `PLEX_TOKEN` | Plex token. Sent only as the `X-Plex-Token` header |
 | `PLEX_MUSIC_SECTION_ID` | Music library section. Empty loads every music section |
 | `KANADE_BITRATE_KBPS` | Opus bitrate sent to Discord. Default 128 |
+| `TZ` | Time zone for log timestamps, for example `Asia/Seoul`. Empty means UTC. `python:3.12-slim` ships zoneinfo, so nothing else is needed |
 
 ## Discord application
 
