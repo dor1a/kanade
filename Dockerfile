@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY kanade ./kanade
 
-# /data keeps the MusicBrainz cache; a fresh named volume inherits this owner.
+# /data keeps the artist name cache; a fresh named volume inherits this owner.
 RUN useradd --system --uid 10001 kanade && install -d -o kanade -g kanade /data
 USER kanade
 

@@ -8,10 +8,10 @@ import time
 import discord
 from discord import app_commands
 
+from .artists import ArtistAliases
 from .browse import BrowseView
 from .config import Config
 from .index import TrackIndex, build
-from .musicbrainz import ArtistAliases
 from .player import GuildPlayer
 from .plex import PlexClient, Track
 from .reading import Readings
@@ -24,7 +24,7 @@ NAME_LIMIT = 100
 LIST_LIMIT = 10
 INDEX_REFRESH_SECONDS = 30 * 60  # New tracks in Plex show up in search after at most this long.
 ALIASES_FILE = "/etc/kanade/aliases.toml"
-MUSICBRAINZ_CACHE = "/data/musicbrainz.json"
+ARTIST_CACHE = "/data/artists.json"
 
 CARD_COLOR = 0x4FA8FF  # The sky blue of the logo.
 
@@ -69,7 +69,7 @@ class Kanade(discord.Client):
         self.config = config
         self.plex = PlexClient(config.plex_url, config.plex_token, config.plex_section_id)
         self.index = TrackIndex()
-        self.artist_aliases = ArtistAliases(MUSICBRAINZ_CACHE)
+        self.artist_aliases = ArtistAliases(ARTIST_CACHE)
         self.readings = Readings(ALIASES_FILE, self.artist_aliases)
         self.tree = _Tree(self)
         self.players: dict[int, GuildPlayer] = {}
@@ -121,7 +121,7 @@ class Kanade(discord.Client):
         try:
             found = await self.artist_aliases.fill(names)
         except Exception:
-            log.exception("MusicBrainz lookups stopped")
+            log.exception("artist name lookups stopped")
             return
         if found:
             await self.refresh_index(reload_tracks=False)

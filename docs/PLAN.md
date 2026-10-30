@@ -32,13 +32,15 @@ The library (2026-10-29): 2,523 tracks in 7 sections. Titles are 880 in kana, 12
 | -- | -- | -- |
 | Japanese | Janome's kana reading spelled in Hangul: common and official spelling, with and without long vowels | 君がいない → 키미가이나이, 기미가이나이 |
 | Han characters only | The Japanese reading and the Korean reading of the characters (`hanja`), since the script does not tell Japanese from Chinese | 四千年 → 욘센넨, 사천년 |
-| Artists not in Hangul | Korean aliases from MusicBrainz, cached in `/data/musicbrainz.json` | ZARD → 자드 |
+| Artists not in Hangul | Korean aliases from MusicBrainz and Korean labels from Wikidata, cached in `/data/artists.json` | ZARD → 자드, Westlife → 웨스트라이프 |
 | Hangul | As written, plus the initial consonants | 좋은 날 → ㅈㅇㄴ |
 | Any name | Hand-kept aliases in `/etc/kanade/aliases.toml` | 米津玄師 → 요네즈 켄시 |
 
 - Janome (Apache-2.0) instead of pykakasi (GPL-3.0-or-later). On sample names Janome read everyday words better (君 as キミ, where pykakasi gave クン), and both misread some names, so names go in the alias table either way.
 - Text is NFKC-normalized and casefolded, with conjoining jamo mapped back to the compatibility jamo a keyboard types. Hangul is compared as jamo, so a half-typed syllable matches.
 - Initials run together within a name, so ㅈㅇㄴ finds 좋은 날, but not across names.
+- MusicBrainz finds the artist by name (score 95 or more, and the name or an alias equal to the Plex name). Wikidata labels are then fetched by that MusicBrainz ID (property P434), because a Wikidata search by name picked the wrong item in tests: LiSA matched a given name and ESTi a family name. MusicBrainz had Korean aliases for 46 of 536 artists; Wikidata had Korean names for 12 of 15 sample artists.
+- Other sources were checked and left out. The iTunes Search API on the Korean store returns romanized or original names (あいみょん → aimyon), Spotify and Last.fm have no Korean names, Discogs needs a token and rarely has Korean, and Korean music stores have no public API.
 - rapidfuzz `partial_ratio` (cutoff 80) runs only when nothing matches exactly, so it does not push near misses into a good result list.
 - On 2,523 sample tracks the index with readings builds in about 1 second and a search takes 1 to 4 ms.
 - Not done: pinyin readings for Chinese names (周杰倫 → 저우제룬 with `pypinyin`).

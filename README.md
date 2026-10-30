@@ -48,7 +48,7 @@ Japanese and Chinese names also match their Korean readings, so the server can t
 | -- | -- | -- |
 | `키미가` or `기미가` | 君がいない | Janome reads the kana and a table spells it in Hangul: the common spelling (켄시, 츠) and the official one (겐시, 쓰), with and without long vowels (토우쿄우, 도쿄) |
 | `욘센넨` or `사천년` | 四千年 | Text in Han characters only also gets the Korean reading of the characters (hanja) |
-| `자드` | ZARD | Korean aliases of the artist on MusicBrainz |
+| `자드` or `웨스트라이프` | ZARD, Westlife | Korean names of the artist on MusicBrainz and Wikidata |
 | `ㅈㅇㄴ` | 좋은 날 | Initial consonants of the Hangul words, readings included |
 | `요넺` | 米津玄師, with the alias below | Text is compared as jamo, so a syllable that is still being typed matches |
 | `요네주켄시` | 米津玄師, with the alias below | When nothing matches exactly, rapidfuzz offers near misses |
@@ -61,7 +61,7 @@ Japanese and Chinese names also match their Korean readings, so the server can t
   ```
 
   The file is reread with the track list every 30 minutes. A broken file keeps the last good copy.
-- After startup the bot asks MusicBrainz about each artist not written in Hangul, one request a second, in the background. A few hundred artists take several minutes the first time. The answers are cached in `/data/musicbrainz.json`, so later runs only ask about new artists. Delete the file to ask again.
+- After startup the bot asks MusicBrainz about each artist not written in Hangul, one request a second, in the background. Wikidata then gives the Korean names of the artists MusicBrainz found, looked up by their MusicBrainz ID a hundred at a time. A few hundred artists take several minutes the first time. The answers are cached in `/data/artists.json`, so later runs ask only about new artists. Artists that had no Korean name are asked again after 30 days. Delete the file to ask about every artist again.
 - Building the readings for a few thousand tracks takes about a second and runs off the event loop. Janome adds about 70 MB of memory.
 
 ## Configuration
@@ -82,7 +82,7 @@ Every key the bot reads is in `.env.example`.
 | Path | Meaning |
 | -- | -- |
 | `/etc/kanade/aliases.toml` | Optional alias file for Korean search. Mount it read-only |
-| `/data` | Writable, owned by uid 10001. Holds the MusicBrainz cache. Without it the cache lives in memory until the bot restarts |
+| `/data` | Writable, owned by uid 10001. Holds the artist name cache. Without it the cache lives in memory until the bot restarts |
 
 ## Discord application
 
@@ -109,4 +109,4 @@ The image is `python:3.12-slim` with ffmpeg. Build for `linux/amd64` on Apple Si
 
 ## License
 
-MIT, see `LICENSE`. The Docker image also installs Debian's `ffmpeg` package (LGPL and GPL), Janome (Apache-2.0, with the IPADIC dictionary under its own license), hanja (WTFPL), and rapidfuzz and PyYAML (MIT), each under its own terms. Korean artist aliases come from the MusicBrainz database, whose core data is CC0.
+MIT, see `LICENSE`. The Docker image also installs Debian's `ffmpeg` package (LGPL and GPL), Janome (Apache-2.0, with the IPADIC dictionary under its own license), hanja (WTFPL), and rapidfuzz and PyYAML (MIT), each under its own terms. Korean artist names come from MusicBrainz, whose core data is CC0, and from Wikidata, whose structured data is CC0.
