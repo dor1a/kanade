@@ -1,6 +1,6 @@
 # kanade plan
 
-> Status: phase 1 runs on the friends' server (2026-10-29). Phase 2 is written and checked in Docker with sample names; it has not run on the server yet.
+> Status: phases 1 and 2 run on the friends' server as v0.1.0 (2026-10-30). Phase 3 has not started.
 
 ## Summary
 

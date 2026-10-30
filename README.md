@@ -16,7 +16,7 @@ Made for one friends' server.
 </div>
 
 > [!NOTE]
-> Phase 1 of [the plan](docs/PLAN.md), playback, runs on the friends' server. Phase 2, Korean search, is written and checked in Docker but not yet on the server. Plex movie and show search comes later.
+> Phases 1 and 2 of [the plan](docs/PLAN.md), playback and Korean search, run on the friends' server as v0.1.0. Plex movie and show search comes later.
 
 ## Commands
 
