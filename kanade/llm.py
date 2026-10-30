@@ -13,9 +13,12 @@ import aiohttp
 
 BATCH = 25
 TIMEOUT = 300  # A model that is not loaded yet can take minutes to answer.
+# Bump with any change to SYSTEM; cached answers from another version are dropped and asked again.
+VERSION = 2
 ONLY_HANGUL = re.compile(r"[가-힣]+(?: [가-힣]+)*")
 SYSTEM = (
     "You write artist names in Hangul the way Korean music sites spell them. "
+    "Spell how each name sounds; never translate the meaning of its words. "
     "Japanese personal names written in Latin letters are given name first; write them family name first in Hangul. "
     "Reply with only a JSON object that maps each given name to its Hangul spelling."
 )

@@ -33,7 +33,7 @@ The library (2026-10-29): 2,523 tracks in 7 sections. Titles are 880 in kana, 12
 | Japanese | Janome's kana reading spelled in Hangul: common and official spelling, with and without long vowels | 君がいない → 키미가이나이, 기미가이나이 |
 | Han characters only | The Japanese reading and the Korean reading of the characters (`hanja`), since the script does not tell Japanese from Chinese | 四千年 → 욘센넨, 사천년 |
 | Artists not in Hangul | Korean aliases from MusicBrainz and Korean labels from Wikidata, cached in `/data/artists.json` | ZARD → 자드, Westlife → 웨스트라이프 |
-| Artists neither source names | Optional: an LLM's Hangul spelling, cached in the same file | Daoko → 다오코 |
+| Artists in Latin letters neither source names | Optional: an LLM's Hangul spelling, cached in the same file | Daoko → 다오코 |
 | Hangul | As written, plus the initial consonants | 좋은 날 → ㅈㅇㄴ |
 | Any name | Hand-kept aliases in `/etc/kanade/aliases.toml` | 米津玄師 → 요네즈 켄시 |
 
@@ -42,6 +42,7 @@ The library (2026-10-29): 2,523 tracks in 7 sections. Titles are 880 in kana, 12
 - Initials run together within a name, so ㅈㅇㄴ finds 좋은 날, but not across names.
 - MusicBrainz finds the artist by name (score 95 or more, and the name or an alias equal to the Plex name). Wikidata labels are then fetched by that MusicBrainz ID (property P434), because a Wikidata search by name picked the wrong item in tests: LiSA matched a given name and ESTi a family name. MusicBrainz had Korean aliases for 46 of 536 artists; Wikidata had Korean names for 12 of 15 sample artists.
 - On the first run over 536 artists, MusicBrainz and Wikidata gave Korean names for 285. The LLM is asked only about the rest, and only answers written entirely in Hangul are kept. On 25 sample names with known Korean spellings, `gemma3:12b-it-qat` matched 20 and `qwen3.5:9b` 15 (2026-10-30). Both got Japanese personal names right, family name first; `qwen3.5:9b` misspelled more English names (링크인 파크 for Linkin Park). The model is a setting, so it follows whatever the LLM server runs.
+- The first run on the server (rc.5, `gemma3-12b-rag`) gave Hangul for 138 of 216 artists, about four in five of them right. The misses fell into three kinds: translations instead of sounds (Holy See → 바티칸, 離婚伝説 → 이혼 전설), Japanese names in Han characters read wrong (冨岡愛 → 토마오카 아이, 井上武英 → 이노에), and plain misspellings (Aimer → 아이머). rc.6 tells the model to spell sounds and never translate, and sends only names with Latin letters, since kana already reads exactly and names in Han characters keep Janome's reading. Cached answers carry the prompt version, so a prompt change drops them and asks again.
 - Other sources were checked and left out. The iTunes Search API on the Korean store returns romanized or original names (あいみょん → aimyon), Spotify and Last.fm have no Korean names, Discogs needs a token and rarely has Korean, and Korean music stores have no public API.
 - rapidfuzz `partial_ratio` (cutoff 80) runs only when nothing matches exactly, so it does not push near misses into a good result list.
 - On 2,523 sample tracks the index with readings builds in about 1 second and a search takes 1 to 4 ms.

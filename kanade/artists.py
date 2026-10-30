@@ -5,8 +5,10 @@ Wikidata items carry that ID (property P434), so one SPARQL query fetches the
 Korean labels of a hundred artists without matching by name, which picks the
 wrong item for names like LiSA.
 
-When an LLM endpoint is set, it spells the rest in Hangul. Its names are used
-only while neither source has one.
+When an LLM endpoint is set, it spells the rest in Hangul if their names have
+Latin letters. Kana already reads exactly, and the model often misread Japanese
+names in Han characters, so those keep Janome's reading. LLM names are used only
+while neither source has one.
 
 MusicBrainz allows one request per second, so the first run over a few hundred
 artists takes minutes. It runs in the background and only asks about artists
@@ -23,7 +25,7 @@ import re
 
 import aiohttp
 
-from .llm import BATCH as LLM_BATCH, LLM
+from .llm import BATCH as LLM_BATCH, VERSION as LLM_VERSION, LLM
 from .text import fold
 
 log = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ SAVE_EVERY = 50
 WIKIDATA_BATCH = 100
 RECHECK_DAYS = 30  # Both sources keep growing, so artists without a Korean name are asked again.
 HANGUL = re.compile(r"[가-힣]")
+LATIN = re.compile(r"[A-Za-z]")
 MBID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 QUERY = """SELECT ?mbid ?name WHERE {
@@ -81,6 +84,7 @@ def _entry(value) -> dict | None:
     mbid = value.get("mbid")
     wikidata = value.get("wikidata")
     llm = value.get("llm")
+    llm_version = value.get("llm_version")
     return {
         "mbid": mbid if isinstance(mbid, str) and MBID.fullmatch(mbid) else None,
         "musicbrainz": [str(a) for a in value.get("musicbrainz") or []],
@@ -88,6 +92,7 @@ def _entry(value) -> dict | None:
         "wikidata": None if wikidata is None else [str(a) for a in wikidata],
         # None means the LLM has not been asked yet.
         "llm": None if llm is None else [str(a) for a in llm],
+        "llm_version": llm_version if isinstance(llm_version, int) else None,
         "checked": str(value.get("checked") or ""),
     }
 
@@ -107,7 +112,8 @@ class ArtistAliases:
         entry = self._cache.get(name)
         if not entry:
             return []
-        return sorted(_data(entry) or entry["llm"] or ())
+        llm = entry["llm"] if entry["llm_version"] == LLM_VERSION else None
+        return sorted(_data(entry) or llm or ())
 
     def load(self) -> None:
         try:
@@ -160,6 +166,7 @@ class ArtistAliases:
                     "musicbrainz": aliases,
                     "wikidata": None,
                     "llm": old.get("llm"),
+                    "llm_version": old.get("llm_version"),
                     "checked": today.isoformat(),
                 }
                 if (i + 1) % SAVE_EVERY == 0:
@@ -190,13 +197,15 @@ class ArtistAliases:
                     entry["wikidata"] = labels.get(entry["mbid"], [])
 
     def _llm_pending(self, names: set[str]) -> list[str]:
-        """Artists both sources have answered about without a Korean name."""
+        """Artists in Latin letters that both sources have answered about without a Korean name."""
         if not self._llm:
             return []
         pending = []
         for name in names:
             entry = self._cache.get(name)
-            if not entry or entry["llm"] is not None or _data(entry):
+            if not entry or not LATIN.search(name) or _data(entry):
+                continue
+            if entry["llm"] is not None and entry["llm_version"] == LLM_VERSION:
                 continue
             if entry["mbid"] and entry["wikidata"] is None:
                 continue
@@ -217,6 +226,7 @@ class ArtistAliases:
                 return
             for name in batch:
                 self._cache[name]["llm"] = answers.get(name, [])
+                self._cache[name]["llm_version"] = LLM_VERSION
 
     async def _musicbrainz(self, session: aiohttp.ClientSession, name: str) -> tuple[str | None, list[str]]:
         phrase = name.replace("\\", "\\\\").replace('"', '\\"')

@@ -49,7 +49,7 @@ Japanese and Chinese names also match their Korean readings, so the server can t
 | `키미가` or `기미가` | 君がいない | Janome reads the kana and a table spells it in Hangul: the common spelling (켄시, 츠) and the official one (겐시, 쓰), with and without long vowels (토우쿄우, 도쿄) |
 | `욘센넨` or `사천년` | 四千年 | Text in Han characters only also gets the Korean reading of the characters (hanja) |
 | `자드` or `웨스트라이프` | ZARD, Westlife | Korean names of the artist on MusicBrainz and Wikidata |
-| `다오코` | Daoko | Optional: an LLM's Hangul spelling, for artists neither source has a Korean name for |
+| `다오코` | Daoko | Optional: an LLM's Hangul spelling, for artists in Latin letters that neither source has a Korean name for |
 | `ㅈㅇㄴ` | 좋은 날 | Initial consonants of the Hangul words, readings included |
 | `요넺` | 米津玄師, with the alias below | Text is compared as jamo, so a syllable that is still being typed matches |
 | `요네주켄시` | 米津玄師, with the alias below | When nothing matches exactly, rapidfuzz offers near misses |
@@ -63,7 +63,7 @@ Japanese and Chinese names also match their Korean readings, so the server can t
 
   The file is reread with the track list every 30 minutes. A broken file keeps the last good copy.
 - After startup the bot asks MusicBrainz about each artist not written in Hangul, one request a second, in the background. Wikidata then gives the Korean names of the artists MusicBrainz found, looked up by their MusicBrainz ID a hundred at a time. A few hundred artists take several minutes the first time. The answers are cached in `/data/artists.json`, so later runs ask only about new artists. Artists that had no Korean name are asked again after 30 days. Delete the file to ask about every artist again.
-- With `LLM_ENDPOINT` set, the bot then sends the artists still without a Korean name to that OpenAI-compatible endpoint, 25 names a request, and keeps only the answers written in Hangul. An artist is asked once; the answer is cached in the same file and is dropped as soon as MusicBrainz or Wikidata has a name. The model gets some names wrong (`gemma3:12b-it-qat` spelled 20 of 25 sample names as Korean music sites do, `qwen3.5:9b` 15), and a wrong name only adds an extra search word; the name as Plex spells it still matches. If the endpoint is down, search works as before and the next refresh asks again.
+- With `LLM_ENDPOINT` set, the bot then sends the artists still without a Korean name to that OpenAI-compatible endpoint, 25 names a request, and keeps only the answers written in Hangul. Only names with Latin letters are sent: kana already reads exactly, and the model often misread Japanese names in Han characters, so those keep Janome's reading. The prompt asks for the sound of the name, not a translation. An artist is asked once; the answer is cached in the same file and is dropped as soon as MusicBrainz or Wikidata has a name, or when a new version of the bot changes the prompt. The model gets some names wrong (`gemma3:12b-it-qat` spelled 20 of 25 sample names as Korean music sites do, `qwen3.5:9b` 15), and a wrong name only adds an extra search word; the name as Plex spells it still matches. If the endpoint is down, search works as before and the next refresh asks again.
 - Building the readings for a few thousand tracks takes about a second and runs off the event loop. Janome adds about 70 MB of memory.
 
 ## Configuration
