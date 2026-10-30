@@ -12,6 +12,7 @@ from .artists import ArtistAliases
 from .browse import BrowseView
 from .config import Config
 from .index import TrackIndex, build
+from .llm import LLM
 from .player import GuildPlayer
 from .plex import PlexClient, Track
 from .reading import Readings
@@ -69,7 +70,10 @@ class Kanade(discord.Client):
         self.config = config
         self.plex = PlexClient(config.plex_url, config.plex_token, config.plex_section_id)
         self.index = TrackIndex()
-        self.artist_aliases = ArtistAliases(ARTIST_CACHE)
+        llm = None
+        if config.llm_endpoint:
+            llm = LLM(config.llm_endpoint, config.llm_model, config.llm_api_key, config.llm_reasoning_effort)
+        self.artist_aliases = ArtistAliases(ARTIST_CACHE, llm)
         self.readings = Readings(ALIASES_FILE, self.artist_aliases)
         self.tree = _Tree(self)
         self.players: dict[int, GuildPlayer] = {}

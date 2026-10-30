@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt && pip install --no-deps -r requirements-nodeps.txt
       - run: python -m compileall -q kanade
-      - run: python -c "import kanade.artists, kanade.bot, kanade.browse, kanade.config, kanade.index, kanade.player, kanade.plex, kanade.reading, kanade.text"
+      - run: python -c "import kanade.artists, kanade.bot, kanade.browse, kanade.config, kanade.index, kanade.llm, kanade.player, kanade.plex, kanade.reading, kanade.text"
 
   # apt and pip run inside the arm64 image, so that platform builds under QEMU.
   image:
