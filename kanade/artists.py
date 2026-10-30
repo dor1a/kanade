@@ -5,6 +5,11 @@ Wikidata items carry that ID (property P434), so one SPARQL query fetches the
 Korean labels of a hundred artists without matching by name, which picks the
 wrong item for names like LiSA.
 
+Plex joins the artists of a track with commas (Alan Walker, Au/Ra, Tomine
+Harket). No source knows such a credit as one artist, so each artist in it is
+looked up on its own and the credit gets their Korean names, unless a source
+knows the whole name (Earth, Wind & Fire).
+
 When an LLM endpoint is set, it spells the rest in Hangul if their names have
 Latin letters. Kana already reads exactly, and the model often misread Japanese
 names in Han characters, so those keep Janome's reading. LLM names are used only
@@ -101,6 +106,17 @@ def _data(entry: dict) -> set[str]:
     return set(entry["musicbrainz"]) | set(entry["wikidata"] or ())
 
 
+def parts(name: str) -> list[str]:
+    """The artists of a credit that Plex joined with commas; empty for a single name."""
+    split = [p.strip() for p in name.split(", ")]
+    split = [p for p in split if p]
+    return split if len(split) > 1 else []
+
+
+def _expand(names: set[str]) -> set[str]:
+    return names | {p for n in names for p in parts(n)}
+
+
 class ArtistAliases:
     def __init__(self, path: str, llm: LLM | None = None):
         self._path = path
@@ -109,6 +125,12 @@ class ArtistAliases:
         self._can_save = True
 
     def __call__(self, name: str) -> list[str]:
+        own = self._names(name)
+        if own or not parts(name):
+            return own
+        return sorted({a for p in parts(name) for a in self._names(p)})
+
+    def _names(self, name: str) -> list[str]:
         entry = self._cache.get(name)
         if not entry:
             return []
@@ -143,6 +165,7 @@ class ArtistAliases:
     async def fill(self, names: set[str], today: datetime.date | None = None) -> int:
         """Look up artists not cached yet; return how many got new Korean names."""
         today = today or datetime.date.today()
+        names = _expand(names)
         todo = self.missing(names, today)
         if not todo and not self._wikidata_pending(names) and not self._llm_pending(names):
             return 0
@@ -203,7 +226,8 @@ class ArtistAliases:
         pending = []
         for name in names:
             entry = self._cache.get(name)
-            if not entry or not LATIN.search(name) or _data(entry):
+            # A credit's artists are asked one by one; the model splits a credit and drops it.
+            if not entry or not LATIN.search(name) or parts(name) or _data(entry):
                 continue
             if entry["llm"] is not None and entry["llm_version"] == LLM_VERSION:
                 continue

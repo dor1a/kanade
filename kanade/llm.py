@@ -13,8 +13,8 @@ import aiohttp
 
 BATCH = 25
 TIMEOUT = 300  # A model that is not loaded yet can take minutes to answer.
-# Bump with any change to SYSTEM; cached answers from another version are dropped and asked again.
-VERSION = 2
+# Bump when SYSTEM or the names sent change; cached answers from another version are dropped and asked again.
+VERSION = 3
 ONLY_HANGUL = re.compile(r"[가-힣]+(?: [가-힣]+)*")
 SYSTEM = (
     "You write artist names in Hangul the way Korean music sites spell them. "
