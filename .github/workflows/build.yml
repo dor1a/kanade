@@ -26,9 +26,9 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt && pip install --no-deps -r requirements-nodeps.txt
       - run: python -m compileall -q kanade
-      - run: python -c "import kanade.bot, kanade.browse, kanade.config, kanade.index, kanade.player, kanade.plex"
+      - run: python -c "import kanade.bot, kanade.browse, kanade.config, kanade.index, kanade.musicbrainz, kanade.player, kanade.plex, kanade.reading, kanade.text"
 
   # apt and pip run inside the arm64 image, so that platform builds under QEMU.
   image:

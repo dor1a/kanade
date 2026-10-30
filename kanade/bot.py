@@ -3,15 +3,18 @@
 import asyncio
 import io
 import logging
+import time
 
 import discord
 from discord import app_commands
 
 from .browse import BrowseView
 from .config import Config
-from .index import TrackIndex
+from .index import TrackIndex, build
+from .musicbrainz import ArtistAliases
 from .player import GuildPlayer
 from .plex import PlexClient, Track
+from .reading import Readings
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +23,8 @@ CHOICE_LIMIT = 25
 NAME_LIMIT = 100
 LIST_LIMIT = 10
 INDEX_REFRESH_SECONDS = 30 * 60  # New tracks in Plex show up in search after at most this long.
+ALIASES_FILE = "/etc/kanade/aliases.toml"
+MUSICBRAINZ_CACHE = "/data/musicbrainz.json"
 
 CARD_COLOR = 0x4FA8FF  # The sky blue of the logo.
 
@@ -64,13 +69,19 @@ class Kanade(discord.Client):
         self.config = config
         self.plex = PlexClient(config.plex_url, config.plex_token, config.plex_section_id)
         self.index = TrackIndex()
+        self.artist_aliases = ArtistAliases(MUSICBRAINZ_CACHE)
+        self.readings = Readings(ALIASES_FILE, self.artist_aliases)
         self.tree = _Tree(self)
         self.players: dict[int, GuildPlayer] = {}
+        self._tracks: list[Track] = []
+        self._index_lock = asyncio.Lock()
         self._refresh_task: asyncio.Task | None = None
+        self._aliases_task: asyncio.Task | None = None
         self._register_commands()
 
     async def setup_hook(self) -> None:
         await self.plex.start()
+        self.artist_aliases.load()
         await self.refresh_index()
         self._refresh_task = asyncio.create_task(self._refresh_loop())
         guild = discord.Object(id=self.config.guild_id)
@@ -79,22 +90,48 @@ class Kanade(discord.Client):
         await self.tree.sync(guild=guild)
 
     async def close(self) -> None:
-        if self._refresh_task:
-            self._refresh_task.cancel()
+        for task in (self._refresh_task, self._aliases_task):
+            if task:
+                task.cancel()
         for player in self.players.values():
             await player.stop()
         await self.plex.close()
         await super().close()
 
-    async def refresh_index(self) -> None:
+    async def refresh_index(self, reload_tracks: bool = True) -> None:
         # A failed refresh keeps the previous index; an empty one falls back to Plex search.
+        async with self._index_lock:
+            if reload_tracks:
+                try:
+                    self._tracks = await self.plex.all_tracks()
+                except Exception:
+                    log.exception("could not load the track list from Plex")
+                    return
+            self.readings.load_aliases()
+            started = time.monotonic()
+            # Readings take seconds to build, so keep them off the event loop.
+            state = await asyncio.to_thread(build, self._tracks, self.readings.extra)
+            self.index.swap(state)
+            log.info("indexed %d tracks in %.1f s", len(self.index), time.monotonic() - started)
+        if self._aliases_task is None or self._aliases_task.done():
+            self._aliases_task = asyncio.create_task(self._fill_artist_aliases())
+
+    async def _fill_artist_aliases(self) -> None:
+        names = {n for t in self._tracks for n in (t.artist, t.album_artist)}
         try:
-            tracks = await self.plex.all_tracks()
+            found = await self.artist_aliases.fill(names)
         except Exception:
-            log.exception("could not load the track list from Plex")
+            log.exception("MusicBrainz lookups stopped")
             return
-        self.index.replace(tracks)
-        log.info("indexed %d tracks", len(self.index))
+        if found:
+            await self.refresh_index(reload_tracks=False)
+
+    async def on_voice_state_update(
+        self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
+    ) -> None:
+        player = self.players.get(member.guild.id)
+        if player:
+            player.check_listeners()
 
     async def _refresh_loop(self) -> None:
         while True:
@@ -253,7 +290,8 @@ class Kanade(discord.Client):
             if not tracks:
                 await interaction.response.send_message(f"찾지 못했어요: {artist}", ephemeral=True)
                 return
-            view = BrowseView(interaction, artist, tracks, self.play_from_menu)
+            name = self.index.artist_name(artist) or artist
+            view = BrowseView(interaction, name, tracks, self.play_from_menu)
             await interaction.response.send_message(view.text(), view=view, ephemeral=True)
 
         async def artist_autocomplete(

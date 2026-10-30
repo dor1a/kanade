@@ -1,0 +1,3 @@
+# Installed with --no-deps: hanja lists its test tools (pytest, coveralls) as
+# install requirements, but at runtime it only needs PyYAML.
+hanja==0.15.1

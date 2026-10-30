@@ -16,13 +16,13 @@ Made for one friends' server.
 </div>
 
 > [!NOTE]
-> Phase 1 of [the plan](docs/PLAN.md), playback, is written but has not played a track in a live voice channel yet. Korean search and Plex media search come after it.
+> Phase 1 of [the plan](docs/PLAN.md), playback, runs on the friends' server. Phase 2, Korean search, is written and checked in Docker but not yet on the server. Plex movie and show search comes later.
 
 ## Commands
 
 | Command | What it does |
 | -- | -- |
-| `/play <query>` | Searches the music library as you type and plays the chosen track, or queues it if something is playing |
+| `/play <query>` | Searches the music library as you type, in Hangul too (see [Korean search](#korean-search)), and plays the chosen track, or queues it if something is playing |
 | `/random [count] [artist]` | Queues random tracks (five by default), from one artist if given, and keeps drawing from the same pool after the queue |
 | `/browse <artist>` | Opens menus, visible only to you, to pick one of the artist's albums and then a track or the whole album |
 | `/skip` | Skips the current track |
@@ -33,12 +33,36 @@ Commands are registered to one guild (`DISCORD_GUILD_ID`), so they appear right 
 
 ## How playback works
 
-- At startup the bot loads every track in the music library from Plex into memory, and it reloads the list every 30 minutes. Autocomplete keeps the tracks whose title, track artist, album artist, and album together contain every word typed, title matches first.
-- When the queue runs out, playback continues with a random track that has not played since the bot joined the voice channel. After `/play` or `/browse` it comes from the last track's artist, after `/random` from the same pool `/random` used, and it moves to the whole library when that pool runs out. `/stop` ends it, and the bot also leaves when a track ends and no one but bots is left in the voice channel.
+- At startup the bot loads every track in the music library from Plex into memory, and it reloads the list every 30 minutes. Autocomplete keeps the tracks whose title, track artist, album artist, album, and their Korean readings together contain every word typed, title matches first.
+- When the queue runs out, playback continues with a random track that has not played since the bot joined the voice channel. After `/play` or `/browse` it comes from the last track's artist, after `/random` from the same pool `/random` used, and it moves to the whole library when that pool runs out. `/stop` ends it. The bot leaves a minute after the last person leaves the voice channel, unless someone comes back.
 - The reply to a command that starts playback is a now-playing card with the album art. Later tracks post the same card to `DISCORD_CHANNEL_ID`, or to the channel of the last command when it is empty. Plex is not reachable from Discord, so the bot fetches the art from Plex at 300 px and uploads it with the card.
 - Plex `/hubs/search` is not used for this because a query for an artist name lands in its artist hub, and its track hub returns only a few of that artist's tracks. It is the fallback when the track list could not be loaded. Discord drops autocomplete answers after three seconds, so the bot waits 2.5 seconds at most for it.
 - The bot opens the track's original file on Plex and hands the stream to `discord.FFmpegOpusAudio(pipe=True)`. discord.py feeds it to ffmpeg's stdin from a thread. The Plex token stays in an HTTP header and never appears in the ffmpeg command line.
 - Voice uses `discord.py[voice]` 2.7.1, which pulls in `davey` for Discord's end-to-end encrypted voice (DAVE). Discord requires it for voice since 2026-03-01.
+
+## Korean search
+
+Japanese and Chinese names also match their Korean readings, so the server can type in Hangul.
+
+| Typed | Finds | How |
+| -- | -- | -- |
+| `키미가` or `기미가` | 君がいない | Janome reads the kana and a table spells it in Hangul: the common spelling (켄시, 츠) and the official one (겐시, 쓰), with and without long vowels (토우쿄우, 도쿄) |
+| `욘센넨` or `사천년` | 四千年 | Text in Han characters only also gets the Korean reading of the characters (hanja) |
+| `자드` | ZARD | Korean aliases of the artist on MusicBrainz |
+| `ㅈㅇㄴ` | 좋은 날 | Initial consonants of the Hangul words, readings included |
+| `요넺` | 米津玄師, with the alias below | Text is compared as jamo, so a syllable that is still being typed matches |
+| `요네주켄시` | 米津玄師, with the alias below | When nothing matches exactly, rapidfuzz offers near misses |
+
+- Generated readings go wrong mostly on names (Janome reads 米津玄師 as ヨネツゲンシ). `/etc/kanade/aliases.toml` adds search words for any title, artist, or album, keyed by the name as Plex spells it:
+
+  ```toml
+  "米津玄師" = ["요네즈 켄시"]
+  "ESTi" = "에스티"
+  ```
+
+  The file is reread with the track list every 30 minutes. A broken file keeps the last good copy.
+- After startup the bot asks MusicBrainz about each artist not written in Hangul, one request a second, in the background. A few hundred artists take several minutes the first time. The answers are cached in `/data/musicbrainz.json`, so later runs only ask about new artists. Delete the file to ask again.
+- Building the readings for a few thousand tracks takes about a second and runs off the event loop. Janome adds about 70 MB of memory.
 
 ## Configuration
 
@@ -55,6 +79,11 @@ Every key the bot reads is in `.env.example`.
 | `KANADE_BITRATE_KBPS` | Opus bitrate sent to Discord. Default 128 |
 | `TZ` | Time zone for log timestamps, for example `Asia/Seoul`. Empty means UTC. `python:3.12-slim` ships zoneinfo, so nothing else is needed |
 
+| Path | Meaning |
+| -- | -- |
+| `/etc/kanade/aliases.toml` | Optional alias file for Korean search. Mount it read-only |
+| `/data` | Writable, owned by uid 10001. Holds the MusicBrainz cache. Without it the cache lives in memory until the bot restarts |
+
 ## Discord application
 
 1. Create an application in the Discord developer portal and add a bot. Copy its token.
@@ -66,7 +95,7 @@ Every key the bot reads is in `.env.example`.
 Version tags publish images for `linux/amd64` and `linux/arm64` to GitHub Container Registry. `v0.1.0` gets `0.1.0`, `0.1`, and `latest`. A release candidate such as `v0.1.0-rc.1` gets only its own tag.
 
 ```sh
-docker run --rm --env-file .env ghcr.io/dor1a/kanade:0.1
+docker run --rm --env-file .env -v ./kanade:/etc/kanade:ro -v kanade-data:/data ghcr.io/dor1a/kanade:0.1
 ```
 
 To build it yourself:
@@ -80,4 +109,4 @@ The image is `python:3.12-slim` with ffmpeg. Build for `linux/amd64` on Apple Si
 
 ## License
 
-MIT, see `LICENSE`. The Docker image installs Debian's `ffmpeg` package, which keeps its own LGPL and GPL terms.
+MIT, see `LICENSE`. The Docker image also installs Debian's `ffmpeg` package (LGPL and GPL), Janome (Apache-2.0, with the IPADIC dictionary under its own license), hanja (WTFPL), and rapidfuzz and PyYAML (MIT), each under its own terms. Korean artist aliases come from the MusicBrainz database, whose core data is CC0.

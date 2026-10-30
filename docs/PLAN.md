@@ -1,6 +1,6 @@
 # kanade plan
 
-> Status: phase 1 is written and checked in Docker: imports, Plex response parsing, and the amd64 and arm64 images. It has not played a track in a live voice channel yet.
+> Status: phase 1 runs on the friends' server (2026-10-29). Phase 2 is written and checked in Docker with sample names; it has not run on the server yet.
 
 ## Summary
 
@@ -22,23 +22,26 @@ kanade plays music from a Plex library in a Discord voice channel, for one frien
 | 2. Korean search | A local index of the music library, matched while the user types | A Korean query finds an English, Japanese, or Chinese title within Discord's three-second autocomplete limit |
 | 3. Media search | Search Plex movies and shows and list what is there. Lookup only | Decided later |
 
-## Korean search (phase 2 draft)
+## Korean search (phase 2)
 
-Plex search matches the stored text, so a Korean query cannot find a title written in another script. The index keeps several readings for each title and artist.
+Plex search matches the stored text, so a Korean query cannot find a title written in another script. At startup and every 30 minutes the bot loads each track's title, track artist, album artist, and album from Plex into memory, adds Korean readings and aliases for each, and autocomplete keeps the tracks that contain every typed word. Plex search fell short here as well: a query for an artist name lands in the artist hub, and the track hub returned 3 of that artist's 347 tracks in one test.
 
-The plain-text part is in place. At startup and every 30 minutes the bot loads each track's title, track artist, album artist, and album from Plex into memory, and autocomplete keeps the tracks that contain every typed word. Plex search fell short here as well: a query for an artist name lands in the artist hub, and the track hub returned 3 of that artist's 347 tracks in one test. The readings below go into the same in-memory entries.
+The library (2026-10-29): 2,523 tracks in 7 sections. Titles are 880 in kana, 128 in Han characters only, 189 in Hangul, and 1,326 in Latin or other scripts. Of 509 album artists, 364 are in Latin script.
 
-| Source | Readings stored | Example |
+| Source | Words added | Example |
 | -- | -- | -- |
-| Japanese | The kana reading (`pykakasi`) written in Hangul, not the Korean reading of the kanji | 米津玄師 → 요네즈 켄시 |
-| Chinese | Both the Korean reading of the characters (`hanja`) and the pinyin (`pypinyin`) written in Hangul | 周杰倫 → 주걸륜, 저우제룬 |
-| English | Korean aliases from MusicBrainz (`inc=aliases`, `locale=ko`). Some artists have none | |
-| Korean | As written, plus the initial consonants | 아이유 → ㅇㅇㅇ |
+| Japanese | Janome's kana reading spelled in Hangul: common and official spelling, with and without long vowels | 君がいない → 키미가이나이, 기미가이나이 |
+| Han characters only | The Japanese reading and the Korean reading of the characters (`hanja`), since the script does not tell Japanese from Chinese | 四千年 → 욘센넨, 사천년 |
+| Artists not in Hangul | Korean aliases from MusicBrainz, cached in `/data/musicbrainz.json` | ZARD → 자드 |
+| Hangul | As written, plus the initial consonants | 좋은 날 → ㅈㅇㄴ |
+| Any name | Hand-kept aliases in `/etc/kanade/aliases.toml` | 米津玄師 → 요네즈 켄시 |
 
-- Rules misread the kanji in Japanese names often enough that a hand-kept alias table covers them.
-- Autocomplete runs on every keystroke, so queries match by prefix on decomposed jamo, with `rapidfuzz` for typos.
-- All text is NFC-normalized.
-- The library is about 2,500 tracks (mp3 and flac), small enough to hold the whole index in memory.
+- Janome (Apache-2.0) instead of pykakasi (GPL-3.0-or-later). On sample names Janome read everyday words better (君 as キミ, where pykakasi gave クン), and both misread some names, so names go in the alias table either way.
+- Text is NFKC-normalized and casefolded, with conjoining jamo mapped back to the compatibility jamo a keyboard types. Hangul is compared as jamo, so a half-typed syllable matches.
+- Initials run together within a name, so ㅈㅇㄴ finds 좋은 날, but not across names.
+- rapidfuzz `partial_ratio` (cutoff 80) runs only when nothing matches exactly, so it does not push near misses into a good result list.
+- On 2,523 sample tracks the index with readings builds in about 1 second and a search takes 1 to 4 ms.
+- Not done: pinyin readings for Chinese names (周杰倫 → 저우제룬 with `pypinyin`).
 
 ## Out of scope
 
@@ -50,7 +53,7 @@ The plain-text part is in place. At startup and every 30 minutes the bot loads e
 ## How it is built
 
 - Checks and image builds run in the `python:3.12-slim` container, so the host needs only Docker.
-- Phase 1 depends only on `discord.py[voice]`. Phase 2 candidates are `pykakasi`, `pypinyin`, `hanja`, and `rapidfuzz`. Anything beyond these needs a written reason.
+- Phase 1 depends only on `discord.py[voice]`. Phase 2 adds `janome`, `hanja`, and `rapidfuzz`. `hanja` is installed with `--no-deps` because it lists its test tools as requirements; at runtime it needs only `PyYAML`, which is listed itself. `pypinyin` is still a candidate. Anything beyond these needs a written reason.
 - A release candidate tag (`vX.Y.Z-rc.N`) is tested on the server before the release tag.
 - One small feature at a time, each finished before the next.
 
@@ -58,7 +61,6 @@ The plain-text part is in place. At startup and every 30 minutes the bot loads e
 
 | Item | Where the draft is |
 | -- | -- |
-| Where the alias table lives (SQLite or Postgres). The track list itself is rebuilt from Plex in memory | Korean search |
 | Contents of the alias table | Korean search |
 | Meaning-based aliases from a local model (optional) | Korean search |
 | Media search commands and output | Phases |

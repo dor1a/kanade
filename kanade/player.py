@@ -12,6 +12,7 @@ from .plex import PlexClient, Track
 log = logging.getLogger(__name__)
 
 MAX_OPEN_FAILURES = 3  # Continuous play stops picking tracks while Plex keeps failing.
+EMPTY_CHANNEL_GRACE = 60  # Seconds to wait for someone to come back before leaving.
 
 PickNext = Callable[[str | None, set[str]], Track | None]
 Announce = Callable[["GuildPlayer", Track], Awaitable[None]]
@@ -32,6 +33,7 @@ class GuildPlayer:
         self._pick_next = pick_next
         self._announce = announce
         self._tasks: set[asyncio.Task] = set()
+        self._leave_task: asyncio.Task | None = None
         # Where now-playing cards go when a track starts without a command.
         self.announce_channel: discord.abc.Messageable | None = None
         self.queue: deque[Track] = deque()
@@ -87,8 +89,29 @@ class GuildPlayer:
             # stop() fires the after callback, which starts the next track.
             self.voice.stop()
 
+    def check_listeners(self) -> None:
+        """Leave a while after the last listener goes; called on every voice state change."""
+        if not self._active or not self.voice or not self.voice.is_connected():
+            return
+        if self._has_listeners():
+            if self._leave_task:
+                self._leave_task.cancel()
+                self._leave_task = None
+        elif self._leave_task is None:
+            self._leave_task = asyncio.create_task(self._leave_later())
+
+    async def _leave_later(self) -> None:
+        await asyncio.sleep(EMPTY_CHANNEL_GRACE)
+        self._leave_task = None
+        if self.voice and self.voice.is_connected() and not self._has_listeners():
+            log.info("nobody came back to %s; leaving", self.voice.channel)
+            await self.stop()
+
     async def stop(self) -> None:
         self._active = False
+        if self._leave_task:
+            self._leave_task.cancel()
+            self._leave_task = None
         self.queue.clear()
         self.current = None
         self.played.clear()

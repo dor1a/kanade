@@ -5,12 +5,14 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-nodeps.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir --no-deps -r requirements-nodeps.txt
 
 COPY kanade ./kanade
 
-RUN useradd --system --uid 10001 kanade
+# /data keeps the MusicBrainz cache; a fresh named volume inherits this owner.
+RUN useradd --system --uid 10001 kanade && install -d -o kanade -g kanade /data
 USER kanade
 
 CMD ["python", "-m", "kanade"]
